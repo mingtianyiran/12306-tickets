@@ -1,0 +1,168 @@
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+
+// ========== 订单结构体（你的手写思路） ==========
+typedef struct Order {
+    int orderId;          // 订单号
+    char name[20];        // 旅客姓名
+    char idCard[20];      // 身份证号
+    int needTicket;       // 该订单需要几张票
+} Order;
+
+// ========== 队列节点 ==========
+typedef struct Node {
+    Order data;
+    struct Node *next;
+} Node;
+
+// ========== 队列结构，保存队头、队尾指针 ==========
+typedef struct Queue {
+    Node *front;
+    Node *rear;
+} Queue;
+
+// 初始化空队列
+void InitQueue(Queue *q) {
+    q->front = NULL;
+    q->rear = NULL;
+}
+
+// 判断队列是否为空
+int IsEmpty(Queue *q) {
+    return q->front == NULL;
+}
+
+// 入队：新增候补订单，加到队尾
+int EnQueue(Queue *q, Order ord) {
+    Node *newNode = (Node *)malloc(sizeof(Node));
+    if (newNode == NULL) {
+        printf("内存分配失败！\n");
+        return 0;
+    }
+    newNode->data = ord;
+    newNode->next = NULL;
+    if (IsEmpty(q)) {
+        q->front = newNode;
+        q->rear = newNode;
+    } else {
+        q->rear->next = newNode;
+        q->rear = newNode;
+    }
+    printf("✅ 候补订单【%d】提交成功，进入排队！\n", ord.orderId);
+    return 1;
+}
+
+// 出队：队头订单出票成功
+int DeQueue(Queue *q, Order *outOrd) {
+    if (IsEmpty(q)) {
+        printf("⚠️ 候补队列为空！\n");
+        return 0;
+    }
+    Node *tmp = q->front;
+    *outOrd = tmp->data;
+    q->front = q->front->next;
+    free(tmp);
+    // 如果出队之后队列变空，尾指针置空
+    if (q->front == NULL) {
+        q->rear = NULL;
+    }
+    return 1;
+}
+
+// 发放余票核心函数：传入k张票，依次从队头分配
+void DispatchTicket(Queue *q, int k) {
+    if (k <= 0) {
+        printf("❌ 余票数量输入非法！\n");
+        return;
+    }
+    printf("\n===== 开始发放余票，本次释放 %d 张 =====\n", k);
+    Order tempOrd;
+    while (!IsEmpty(q) && k > 0) {
+        // 取队首订单看需要多少票
+        Node *head = q->front;
+        if (head->data.needTicket <= k) {
+            // 票足够，这个订单候补成功，出队
+            DeQueue(q, &tempOrd);
+            k -= tempOrd.needTicket;
+            printf("🎉 候补成功！订单号：%d，姓名：%s，身份证：%s，需要%d张票\n",
+                   tempOrd.orderId, tempOrd.name, tempOrd.idCard, tempOrd.needTicket);
+        } else {
+            // 剩余票不够这个订单，不能出票，停止分配
+            printf("⏸️ 剩余票数不足队首订单需求，停止发放！\n");
+            break;
+        }
+    }
+    if (k > 0) {
+        printf("✅ 本次余票全部发放完毕，还剩 %d 张票（无候补用户）\n", k);
+    }
+    if (!IsEmpty(q)) {
+        printf("📌 仍有旅客在候补队列等待放票\n");
+    } else {
+        printf("✅ 候补队列已经全部出票完毕，队列为空\n");
+    }
+}
+
+// 遍历打印当前排队的所有候补订单（对应你手写：队列列表输出）
+void ShowQueue(Queue *q) {
+    if (IsEmpty(q)) {
+        printf("📋 当前候补队列为空\n");
+        return;
+    }
+    printf("\n===== 当前候补排队列表（按提交先后）=====\n");
+    Node *p = q->front;
+    int cnt = 1;
+    while (p != NULL) {
+        printf("第%d位 | 订单号：%d | 姓名：%s | 身份证：%s | 需要票数：%d\n",
+               cnt, p->data.orderId, p->data.name, p->data.idCard, p->data.needTicket);
+        p = p->next;
+        cnt++;
+    }
+}
+
+int main() {
+    Queue q;
+    InitQueue(&q);
+    int choice;
+    int orderIdAuto = 10001; // 自动递增订单号，不用手动输入
+    Order newOrd;
+    int releaseK;
+
+    while (1) {
+        printf("\n========= 12306候补系统【基础版】=========\n");
+        printf("1 - 新增候补订单\n");
+        printf("2 - 发放余票（输入释放票数k）\n");
+        printf("3 - 查看当前候补排队列表\n");
+        printf("4 - 退出程序\n");
+        printf("请输入操作选择：");
+        scanf("%d", &choice);
+        getchar(); // 吸收换行，防止字符串读取bug
+
+        if (choice == 1) {
+            newOrd.orderId = orderIdAuto++;
+            printf("请输入旅客姓名：");
+            scanf("%s", newOrd.name);
+            getchar();
+            printf("请输入身份证号：");
+            scanf("%s", newOrd.idCard);
+            getchar();
+            printf("请输入需要车票数量：");
+            scanf("%d", &newOrd.needTicket);
+            getchar();
+            EnQueue(&q, newOrd);
+        } else if (choice == 2) {
+            printf("请输入本次释放余票数量k：");
+            scanf("%d", &releaseK);
+            getchar();
+            DispatchTicket(&q, releaseK);
+        } else if (choice == 3) {
+            ShowQueue(&q);
+        } else if (choice == 4) {
+            printf("👋 系统退出，感谢使用！\n");
+            break;
+        } else {
+            printf("❌ 输入选项错误，请重新选择！\n");
+        }
+    }
+    return 0;
+}
